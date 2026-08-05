@@ -12,7 +12,7 @@ jobs:
     steps:
       # Pinned to Node 24-compatible majors — see ci.yml for why (GitHub removes the
       # Node 20 Actions runtime on 2026-09-16).
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Write .env
         run: |
