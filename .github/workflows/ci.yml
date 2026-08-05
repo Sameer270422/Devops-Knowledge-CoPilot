@@ -60,7 +60,7 @@ jobs:
       # is incompatible with Spring Boot 3.3.2's Gradle plugin. setup-gradle here (without
       # a gradle-version override) detects the wrapper and just adds dependency/build
       # caching on top of it, rather than provisioning its own separate Gradle install.
-      - uses: gradle/actions/setup-gradle@v5
+      - uses: gradle/actions/setup-gradle@v6
 
       # `./gradlew build` runs the full test suite, including VectorStoreIntegrationTest
       # and CopilotApplicationTests, which each spin up their own throwaway pgvector
