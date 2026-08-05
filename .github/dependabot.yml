@@ -1,0 +1,40 @@
+version: 2
+updates:
+  # Backend — Gradle dependencies (Spring Boot, jjwt, AWS SDK, PDFBox, Testcontainers, etc.)
+  - package-ecosystem: "gradle"
+    directory: "/backend"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 10
+
+  # Frontend — npm dependencies (React, Vite, Vitest, Testing Library, etc.)
+  - package-ecosystem: "npm"
+    directory: "/frontend"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 10
+
+  # E2E suite has its own package.json (Playwright), kept separate from the frontend app's
+  # dependencies on purpose — see e2e/README.md.
+  - package-ecosystem: "npm"
+    directory: "/e2e"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+
+  # Docker base images (gradle:8.9-jdk17, eclipse-temurin:17-jre-alpine, node:20-alpine,
+  # nginxinc/nginx-unprivileged:alpine, pgvector/pgvector:pg16)
+  - package-ecosystem: "docker"
+    directory: "/backend"
+    schedule:
+      interval: "weekly"
+  - package-ecosystem: "docker"
+    directory: "/frontend"
+    schedule:
+      interval: "weekly"
+
+  # GitHub Actions versions used in ci.yml / e2e.yml
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"

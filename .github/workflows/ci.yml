@@ -1,0 +1,124 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+
+    # The smoke test (@SpringBootTest, runs Flyway migrations on startup) needs a real
+    # pgvector-enabled Postgres, not a plain postgres image — same image the app uses
+    # everywhere else (see docker-compose.yml).
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_DB: copilot_test
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DB_URL: jdbc:postgresql://localhost:5432/copilot_test
+      DB_USER: test
+      DB_PASSWORD: test
+      # CI-only dummy values. Real secrets are never committed or hardcoded — see
+      # docs/01-requirements-and-planning.md, Security Measures. The app only needs
+      # JWT_SECRET to be 32+ chars to boot; LLM/embedding keys are never called during
+      # the context-load smoke test, so dummy values are sufficient here.
+      JWT_SECRET: ci-only-dummy-secret-not-used-in-prod-please-change
+      LLM_API_KEY: dummy
+      EMBEDDING_API_KEY: dummy
+
+    steps:
+      # Actions pinned to Node 24-compatible major versions — GitHub removes the Node 20
+      # runtime from hosted runners on 2026-09-16, after which older majors (checkout@v4,
+      # setup-java@v4, setup-node@v4, setup-gradle@v4, gitleaks-action@v2 below) stop
+      # running at all, not just warn. Pinned here ahead of that deadline rather than
+      # waiting for it to break.
+      - uses: actions/checkout@v6
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      # A real Gradle wrapper is committed now (backend/gradlew) — Stage 6 closed the
+      # "no committed wrapper" gap noted in docs/04-implementation.md, after a local run
+      # surfaced exactly the problem that gap predicted: a system-wide Gradle 9.x install
+      # is incompatible with Spring Boot 3.3.2's Gradle plugin. setup-gradle here (without
+      # a gradle-version override) detects the wrapper and just adds dependency/build
+      # caching on top of it, rather than provisioning its own separate Gradle install.
+      - uses: gradle/actions/setup-gradle@v5
+
+      # `./gradlew build` runs the full test suite, including VectorStoreIntegrationTest
+      # and CopilotApplicationTests, which each spin up their own throwaway pgvector
+      # container via Testcontainers (separate from the `postgres` service above, which
+      # only exists for compatibility if a test wants a fixed, pre-migrated instance).
+      # GitHub-hosted ubuntu-latest runners ship Docker pre-installed and the docker
+      # socket already accessible, so no extra setup step is needed for Testcontainers.
+      - name: Build and test
+        working-directory: backend
+        run: |
+          chmod +x gradlew
+          ./gradlew build
+
+      - name: Build backend image (for scanning only, not pushed)
+        run: docker build -t copilot-backend:ci ./backend
+
+      - name: Scan backend image for vulnerabilities (Trivy)
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: copilot-backend:ci
+          severity: HIGH,CRITICAL
+          exit-code: '1'
+          ignore-unfixed: true
+
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '20'
+      - name: Install, test, and build
+        working-directory: frontend
+        run: |
+          npm install
+          npm test
+          npm run build
+
+      - name: Build frontend image (for scanning only, not pushed)
+        run: docker build -t copilot-frontend:ci ./frontend
+
+      - name: Scan frontend image for vulnerabilities (Trivy)
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: copilot-frontend:ci
+          severity: HIGH,CRITICAL
+          exit-code: '1'
+          ignore-unfixed: true
+
+  secret-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - name: Scan for committed secrets (gitleaks)
+        uses: gitleaks/gitleaks-action@v3
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # GITLEAKS_LICENSE is only required if this repo ever moves under a GitHub
+          # Organization account — not needed for a personal-account repo.

@@ -1,0 +1,63 @@
+name: E2E (manual)
+
+# Deliberately NOT on push/pull_request — see e2e/README.md for why. This suite hits real
+# LLM/embedding APIs against the live docker-compose stack, so it's triggered by hand
+# (e.g. before a release) rather than on every commit.
+on:
+  workflow_dispatch:
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      # Pinned to Node 24-compatible majors — see ci.yml for why (GitHub removes the
+      # Node 20 Actions runtime on 2026-09-16).
+      - uses: actions/checkout@v6
+
+      - name: Write .env
+        run: |
+          cat <<EOF > .env
+          DB_NAME=copilot
+          DB_USER=copilot
+          DB_PASSWORD=copilot
+          JWT_SECRET=${{ secrets.E2E_JWT_SECRET }}
+          COOKIES_SECURE=false
+          CORS_ALLOWED_ORIGIN=http://localhost:5173
+          LLM_PROVIDER=anthropic
+          LLM_API_KEY=${{ secrets.E2E_LLM_API_KEY }}
+          EMBEDDING_API_KEY=${{ secrets.E2E_EMBEDDING_API_KEY }}
+          UPLOAD_MAX_SIZE_MB=20
+          RAG_TOP_K=5
+          EOF
+
+      - name: Start the stack
+        run: docker compose up -d --build
+
+      - name: Wait for the frontend to respond
+        run: |
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:5173 > /dev/null; then exit 0; fi
+            sleep 2
+          done
+          echo "Stack did not become healthy in time"
+          docker compose logs
+          exit 1
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '20'
+
+      - name: Install Playwright and run the suite
+        working-directory: e2e
+        run: |
+          npm install
+          npx playwright install --with-deps chromium
+          npm test
+
+      - name: Dump logs on failure
+        if: failure()
+        run: docker compose logs
+
+      - name: Tear down
+        if: always()
+        run: docker compose down -v

@@ -1,0 +1,18 @@
+Runbook: Zephyr Queue Backlog Alert
+
+Service: zephyr-notification-worker
+Owning team: Messaging Platform
+
+When the ZephyrQueueBacklog alert fires, the on-call engineer should first run
+`zephyrctl queue status --queue=notifications` to confirm the backlog size.
+
+The documented emergency mitigation for this specific alert is to scale the
+zephyr-notification-worker deployment to 12 replicas using:
+
+    kubectl scale deployment/zephyr-notification-worker --replicas=12
+
+Do not scale above 12 replicas without checking with the Messaging Platform team
+first, since the downstream email provider rate-limits at 12 concurrent workers.
+
+If the backlog does not drain within 15 minutes of scaling, escalate to the
+Messaging Platform on-call via the #messaging-platform-oncall channel.

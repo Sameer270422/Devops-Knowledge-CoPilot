@@ -1,0 +1,53 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME:-copilot}
+      POSTGRES_USER: ${DB_USER:-copilot}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-copilot}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-copilot}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build: ./backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DB_URL: jdbc:postgresql://postgres:5432/${DB_NAME:-copilot}
+      DB_USER: ${DB_USER:-copilot}
+      DB_PASSWORD: ${DB_PASSWORD:-copilot}
+      JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in .env}
+      COOKIES_SECURE: ${COOKIES_SECURE:-false}
+      CORS_ALLOWED_ORIGIN: ${CORS_ALLOWED_ORIGIN:-http://localhost:5173}
+      LLM_PROVIDER: ${LLM_PROVIDER:-anthropic}
+      LLM_API_KEY: ${LLM_API_KEY:?set LLM_API_KEY in .env}
+      EMBEDDING_API_KEY: ${EMBEDDING_API_KEY:?set EMBEDDING_API_KEY in .env}
+      UPLOAD_MAX_SIZE_MB: ${UPLOAD_MAX_SIZE_MB:-20}
+      RAG_TOP_K: ${RAG_TOP_K:-5}
+      LOCAL_STORAGE_DIR: /data/documents
+    volumes:
+      - documents:/data/documents
+    ports:
+      - "8080:8080"
+
+  frontend:
+    build: ./frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "5173:8080"
+
+volumes:
+  pgdata:
+  documents:

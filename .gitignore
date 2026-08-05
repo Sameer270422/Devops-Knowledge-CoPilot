@@ -1,0 +1,39 @@
+# Backend
+backend/build/
+backend/.gradle/
+*.class
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+
+# E2E
+e2e/node_modules/
+e2e/test-results/
+e2e/playwright-report/
+
+# Env / secrets
+.env
+*.pem
+*.key
+
+# Terraform — .tfstate can contain plaintext secrets (e.g. RDS passwords) in resource
+# attributes, and .tfvars often holds real values for a given environment. Never commit
+# either; commit *.tfvars.example instead. .terraform.lock.hcl is the one exception —
+# that one SHOULD be committed, for reproducible provider versions.
+**/.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+!*.tfvars.example
+crash.log
+
+# Ansible
+*.retry
+vault_pass.txt
+
+# IDE / OS
+.idea/
+.vscode/
+*.iml
+.DS_Store
