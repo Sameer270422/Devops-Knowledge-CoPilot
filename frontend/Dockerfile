@@ -17,6 +17,14 @@ RUN npm run build
 # "non-root containers" commitment, without needing to hand-manage nginx's PID/cache
 # directory permissions ourselves.
 FROM nginxinc/nginx-unprivileged:alpine
+# This base image already switches to a non-root "nginx" user internally, so apk (which
+# needs root) has to explicitly switch back before upgrading and back again afterward —
+# same reasoning as backend/Dockerfile: refresh Alpine's packages at build time instead
+# of trusting a possibly-stale base image tag, so OS-level CVEs get picked up on every
+# build without needing to remember to bump the base image.
+USER root
+RUN apk update && apk upgrade --no-cache
+USER nginx
 COPY --from=build --chown=nginx:nginx /app/dist /usr/share/nginx/html
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 EXPOSE 8080

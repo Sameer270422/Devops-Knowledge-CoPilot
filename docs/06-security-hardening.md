@@ -131,6 +131,41 @@ environment quirk, not a project defect.
 against it); the CSP directive was checked against every external resource `index.html`
 actually loads (Google Fonts) so it doesn't silently break the app's own styling.
 
+## Post-hardening fixes (found once Trivy actually ran in CI)
+
+Once the Testcontainers/storage/vector-dimension bugs (see Stage 5/6 verification notes)
+stopped masking it, Trivy's image scan ran for real for the first time and immediately
+did its job: it found two CRITICAL CVEs (an unpatched Tomcat RCE, a Spring Security
+bypass) plus dozens of HIGH ones, all because Spring Boot 3.3.2 had quietly gone fully
+end-of-life — 3.3.x stopped receiving security patches entirely back in 2024.
+
+Investigated two paths: patch to Spring Boot 3.5.16 (the final patch of the 3.5 line —
+also since EOL as of 2026-06-30, but the newest release that stays within the same
+Spring Framework 6 / Spring Security 6 / Hibernate 6 generation as 3.3.x, i.e. a
+same-major dependency bump) versus migrating to the actively-maintained Spring Boot 4.x
+line. Reading the real Spring Boot 4.0 migration guide before deciding (rather than
+guessing) surfaced real breaking changes across that path: Jackson 3's package/group-ID
+rename, `spring-boot-starter-web` → `spring-boot-starter-webmvc`, Flyway needing its own
+starter, `@MockBean`/`@SpyBean` removed in favor of `@MockitoBean`/`@MockitoSpyBean`, and
+— the two genuinely unknown risks — Spring Security 7.0's changes (not even covered by
+the Boot 4.0 guide itself, which just links out) and whether Hibernate's
+`@JdbcTypeCode(SqlTypes.JSON)` (what `ChatMessage.citedChunkIds` depends on for its native
+JSONB mapping) still behaves the same way, which no official doc addressed either way.
+
+Given that real scope, chose the 3.5.16 patch now — closes both CRITICALs and nearly
+every HIGH finding while staying a same-generation dependency bump (Framework 6.x,
+Security 6.x, Hibernate 6.x throughout, so `SecurityConfig`'s DSL and the JSONB mapping
+are both unaffected) — and deferred the Spring Boot 4 migration to a dedicated future
+effort rather than attempting it inline here.
+
+Also fixed two OS-level CVEs (`libexpat`, `p11-kit`) Trivy found in the Alpine base image
+itself, which no Spring Boot version bump touches at all: added `apk update && apk
+upgrade --no-cache` to both Dockerfiles' final stages, so package patches get picked up
+on every build instead of depending on the base image tag happening to be freshly
+published. (On the frontend image, this required an explicit `USER root` /
+`USER nginx` switch around the upgrade step, since `nginxinc/nginx-unprivileged` already
+drops to a non-root user internally and `apk` needs root.)
+
 ## Known gaps
 
 - **Malware/virus scanning** — still not implemented. Content-sniffing (above) catches

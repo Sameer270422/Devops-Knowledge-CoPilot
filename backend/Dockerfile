@@ -13,6 +13,12 @@ RUN ./gradlew bootJar --no-daemon
 
 FROM eclipse-temurin:17-jre-alpine
 WORKDIR /app
+# Refresh Alpine's own packages at build time rather than trusting whatever the base
+# image tag happened to be pinned to when it was last published — this is what actually
+# fixes OS-level CVEs Trivy finds (e.g. libexpat, p11-kit), since those aren't touched by
+# bumping Spring Boot at all. Runs on every build, so it never goes stale the way a fixed
+# base image tag would.
+RUN apk update && apk upgrade --no-cache
 # Run as a dedicated non-root user rather than the default root — per the security
 # plan's "non-root containers" commitment. /data/documents is created and chowned here
 # (rather than left to whatever the docker-compose volume mount defaults to) so that
