@@ -59,6 +59,22 @@ class VectorStoreIntegrationTest {
     @Autowired
     private VectorStore vectorStore;
 
+    // The chunks.embedding column is declared vector(1536) (V1__init.sql) — pgvector
+    // enforces that dimension exactly and rejects anything else with a PSQLException, so
+    // test vectors have to be real 1536-length arrays, not a short illustrative literal.
+    // This only surfaced once these tests actually ran against a real Postgres+pgvector
+    // instance for the first time (see docs/06-security-hardening.md) — a 3-dim literal
+    // silently "worked" as Java the whole time, it just always failed at the DB.
+    private static final int EMBEDDING_DIMENSIONS = 1536;
+
+    /** A 1536-dim vector that's zero everywhere except the two given dimensions. */
+    private float[] embedding(float dim0, float dim1) {
+        float[] vector = new float[EMBEDDING_DIMENSIONS];
+        vector[0] = dim0;
+        vector[1] = dim1;
+        return vector;
+    }
+
     @Test
     void similaritySearchReturnsTheClosestVectorFirst() {
         UUID userId = insertTestUser("user1@example.com");
@@ -66,13 +82,13 @@ class VectorStoreIntegrationTest {
         UUID chunkA = insertTestChunk(documentId, userId, 0, "content about kubernetes pods");
         UUID chunkB = insertTestChunk(documentId, userId, 1, "content about database backups");
 
-        // Simple 3-dim vectors for a deterministic, easy-to-reason-about test - the real
-        // app uses 1536-dim OpenAI embeddings, but cosine-distance ordering works
-        // identically regardless of dimensionality.
-        vectorStore.saveEmbedding(chunkA, new float[]{1f, 0f, 0f});
-        vectorStore.saveEmbedding(chunkB, new float[]{0f, 1f, 0f});
+        // Only the first two of 1536 dimensions are non-zero — real embeddings use all of
+        // them, but cosine-distance ordering works identically regardless of how many
+        // dimensions are actually non-zero.
+        vectorStore.saveEmbedding(chunkA, embedding(1f, 0f));
+        vectorStore.saveEmbedding(chunkB, embedding(0f, 1f));
 
-        List<RetrievedChunk> results = vectorStore.similaritySearch(userId, new float[]{0.9f, 0.1f, 0f}, 5);
+        List<RetrievedChunk> results = vectorStore.similaritySearch(userId, embedding(0.9f, 0.1f), 5);
 
         assertFalse(results.isEmpty());
         assertEquals(chunkA, results.get(0).chunkId(), "expected the closer vector to rank first");
@@ -89,10 +105,10 @@ class VectorStoreIntegrationTest {
 
         UUID docA = insertTestDocument(userA, "user-a-private-runbook.md");
         UUID chunkA = insertTestChunk(docA, userA, 0, "user A's private incident details");
-        vectorStore.saveEmbedding(chunkA, new float[]{1f, 0f, 0f});
+        vectorStore.saveEmbedding(chunkA, embedding(1f, 0f));
 
         // User B searches with the exact same vector user A's chunk was stored under.
-        List<RetrievedChunk> resultsForUserB = vectorStore.similaritySearch(userB, new float[]{1f, 0f, 0f}, 5);
+        List<RetrievedChunk> resultsForUserB = vectorStore.similaritySearch(userB, embedding(1f, 0f), 5);
 
         assertTrue(resultsForUserB.isEmpty(),
                 "user B must not be able to retrieve user A's chunks, even with an identical query vector");
