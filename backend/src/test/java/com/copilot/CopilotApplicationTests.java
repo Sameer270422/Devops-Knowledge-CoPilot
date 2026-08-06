@@ -2,6 +2,7 @@ package com.copilot;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.containers.PostgreSQLContainer;
@@ -14,8 +15,14 @@ import org.testcontainers.utility.DockerImageName;
 // start by hand first. Locally that used to mean this test failed with a bare
 // PSQLException the moment nobody had run `docker compose up -d postgres` beforehand,
 // which is exactly the kind of environment-dependent flakiness a smoke test shouldn't have.
+//
+// "test" profile pulls in application-test.yml, which points LocalFileStorageService at
+// a writable build-directory path instead of the production default (/data/documents) —
+// without it, booting the full context outside Docker fails on AccessDeniedException
+// trying to mkdir a root-level path.
 @Testcontainers
 @SpringBootTest
+@ActiveProfiles("test")
 class CopilotApplicationTests {
 
     @Container

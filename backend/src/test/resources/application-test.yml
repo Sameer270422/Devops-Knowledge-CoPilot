@@ -1,0 +1,11 @@
+# Profile-specific override (merges on top of src/main/resources/application.yml, doesn't
+# replace it) for the two @SpringBootTest classes that boot the full context. The
+# production default (app.storage.local-dir -> /data/documents) only works inside Docker,
+# where Stage 6 pre-creates and chows that directory before the app runs as a non-root
+# user. A bare `gradle test` run — locally or in CI, outside a container — has no
+# permission to create a directory at the filesystem root, which is exactly what
+# LocalFileStorageService's constructor tries to do unconditionally. Point it at the
+# Gradle build directory instead, which always exists and is always writable.
+app:
+  storage:
+    local-dir: build/test-documents

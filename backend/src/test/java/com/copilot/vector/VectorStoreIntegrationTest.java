@@ -4,6 +4,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.containers.PostgreSQLContainer;
@@ -21,9 +22,15 @@ import static org.junit.jupiter.api.Assertions.*;
  * than mocks - VectorStore speaks raw pgvector SQL (embedding <=> ?::vector), which a
  * mocked JdbcTemplate couldn't meaningfully verify. Flyway applies the real V1__init.sql
  * migration against this container on context startup, same as production.
+ *
+ * "test" profile pulls in application-test.yml, which points LocalFileStorageService at
+ * a writable build-directory path instead of the production default (/data/documents) —
+ * without it, booting the full context outside Docker fails on AccessDeniedException
+ * trying to mkdir a root-level path.
  */
 @Testcontainers
 @SpringBootTest
+@ActiveProfiles("test")
 class VectorStoreIntegrationTest {
 
     @Container
