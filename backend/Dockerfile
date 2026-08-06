@@ -3,7 +3,7 @@
 # See docs/06-security-hardening.md for why the wrapper exists at all: a system-wide
 # Gradle 9.x install is incompatible with Spring Boot 3.3.2's Gradle plugin, which is
 # exactly the failure a missing wrapper used to leave every contributor to hit blind.
-FROM eclipse-temurin:17-jdk-alpine AS build
+FROM eclipse-temurin:25-jdk-alpine AS build
 WORKDIR /app
 COPY gradlew settings.gradle build.gradle ./
 COPY gradle ./gradle
@@ -11,7 +11,7 @@ RUN chmod +x gradlew
 COPY src ./src
 RUN ./gradlew bootJar --no-daemon
 
-FROM eclipse-temurin:17-jre-alpine
+FROM eclipse-temurin:25-jre-alpine
 WORKDIR /app
 # Refresh Alpine's own packages at build time rather than trusting whatever the base
 # image tag happened to be pinned to when it was last published — this is what actually
