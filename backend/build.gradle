@@ -31,6 +31,16 @@ dependencies {
     implementation 'software.amazon.awssdk:s3'
     implementation 'org.apache.pdfbox:pdfbox:3.0.3'
 
+    // Netty comes in transitively via the AWS SDK's async S3 client (netty-nio-client),
+    // not directly from Spring Boot. Overriding these three modules explicitly because
+    // the AWS SDK BOM above still resolves 4.1.135.Final, one patch behind fixes for
+    // CVE-2026-59901/55831/55833/56745/56819 — Gradle resolves a direct declaration here
+    // over whatever version either BOM suggests, so this doesn't need to wait for the AWS
+    // SDK BOM to catch up.
+    implementation 'io.netty:netty-codec:4.1.136.Final'
+    implementation 'io.netty:netty-codec-http:4.1.136.Final'
+    implementation 'io.netty:netty-codec-http2:4.1.136.Final'
+
     implementation 'org.springframework.boot:spring-boot-starter-web'
     implementation 'org.springframework.boot:spring-boot-starter-security'
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
@@ -47,8 +57,9 @@ dependencies {
     runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.12.6'
     runtimeOnly 'io.jsonwebtoken:jjwt-jackson:0.12.6'
 
-    // Postgres + pgvector
-    runtimeOnly 'org.postgresql:postgresql'
+    // Postgres + pgvector — version pinned explicitly (CVE-2026-54291, fixed in 42.7.12;
+    // Spring Boot 3.5.16's BOM still resolves 42.7.11) rather than left to Boot's BOM.
+    runtimeOnly 'org.postgresql:postgresql:42.7.12'
 
     compileOnly 'org.projectlombok:lombok'
     annotationProcessor 'org.projectlombok:lombok'
