@@ -53,9 +53,9 @@ dependencies {
     implementation 'org.flywaydb:flyway-database-postgresql'
 
     // JWT
-    implementation 'io.jsonwebtoken:jjwt-api:0.12.6'
-    runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.12.6'
-    runtimeOnly 'io.jsonwebtoken:jjwt-jackson:0.12.6'
+    implementation 'io.jsonwebtoken:jjwt-api:0.13.0'
+    runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.13.0'
+    runtimeOnly 'io.jsonwebtoken:jjwt-jackson:0.13.0'
 
     // Postgres + pgvector — version pinned explicitly (CVE-2026-54291, fixed in 42.7.12;
     // Spring Boot 3.5.16's BOM still resolves 42.7.11) rather than left to Boot's BOM.
